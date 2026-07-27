@@ -1,0 +1,7 @@
+
+20:05:13  astap -f Light_M_8_011.fits -log
+20:05:14  Using star database D50
+20:05:14  Creating grayscale x 2 binning image for solving or star alignment.
+20:05:14  500 stars, 386 quads selected in the image. 500 database stars, 386 database quads required for the 0.86° square search window. Step size 0.86°. Oversize 1.00
+20:05:14  89 of 92 quads selected matching within 0.007 tolerance.  Solution["] x:=0.071781x+ 1.024515y+ -1648.274896,  y:=1.024508x+ -0.072058y+ -1432.002486
+20:05:14  Solution found: 18: 03  45.38	-24° 22  23.2	 Solved in 0.4 sec.	 Δ was 31.2".	 Mount Δα=-17.7",  Δδ=-25.7". 	 Used stars down to magnitude: 13.8
