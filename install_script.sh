@@ -1,5 +1,10 @@
 #!/bin/bash
-sudo apt install astap_cli
+mkdir -p bin
+wget -P ./bin/astap_cli_zipped/ https://sourceforge.net/projects/astap-program/files/linux_installer/astap_command-line_version_Linux_aarch64.zip/download
+unzip ./bin/astap_cli_zipped/download -d astap_cli_download
+cp ./bin/astap_cli_download/astap_cli ./bin/astap_cli
+rm -rf ./bin/astap_cli_download ./bin/astap_cli_zipped
+# sudo apt install astap_cli
 
 # TODO:
 # Maybe change this index db to a different/better one
