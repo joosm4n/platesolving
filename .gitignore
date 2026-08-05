@@ -1,2 +1,5 @@
 *.ini
 .venv
+*.fits
+*.tif
+*.bmp
