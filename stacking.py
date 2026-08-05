@@ -19,12 +19,15 @@ def main() :
     frames = [reference] # np.array([fits.getdata(f).astype(np.float32) for f in files])
 
     print(f"Registering Frames...")
+    i = 1
     for f in files[1:]:
+        
         source = fits.getdata(f).astype(np.float32)
         # Returns the aligned image and the transformation used
         aligned, footprint = aa.register(source, reference)
-        print(f"Alignment footprint: {footprint}")
+        print(f"Successfully aligned image {i}")
         frames.append(aligned)
+        i += 1
 
         #print(f"Number of frames = {len(frames)}")
     frames = np.stack(frames)
