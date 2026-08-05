@@ -98,7 +98,7 @@ def solve(cam_enu, star_ecef) -> tuple[float, float]:
 ASTAP_PROG_NAME: str = "astap_cli"
 
 if __name__ == "__main__":
-    file_name = "Light_M_8_011"
+    file_name = "stacked/*"
 
     try:
         result = subprocess.run([ASTAP_PROG_NAME, "-f", file_name + ".fits", "-log"])
