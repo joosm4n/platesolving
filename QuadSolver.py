@@ -260,7 +260,7 @@ def main(raw_image_path, filetype) :
         env = os.environ.copy()
         env["QT_QPA_PLATFORM"] = "offscreen"
         result = subprocess.run(
-            [ASTAP_PROG_NAME, "-f", output_path.removesuffix(".fits"), "-d /home/thomas/Documents/Code/QuadStar/platesolving/ASTAP_DB", "-log" ],
+            [ASTAP_PROG_NAME, "-f", output_path, "-d /home/thomas/Documents/Code/QuadStar/platesolving/ASTAP_DB", "-log" ],
             env=env
         )
 
@@ -268,8 +268,8 @@ def main(raw_image_path, filetype) :
         print(f"Failed: {e}")
     except subprocess.TimeoutExpired:
         print("Timeout")
-
-    ra_str, dec_str = get_ra_dec(output_path + ".log")
+    log_path = output_path.removesuffix(".fits")
+    ra_str, dec_str = get_ra_dec(log_path + ".log")
 
     try:
         if ra_str is None or dec_str is None:
