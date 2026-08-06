@@ -260,7 +260,7 @@ def main(raw_image_path, filetype) :
         env = os.environ.copy()
         env["QT_QPA_PLATFORM"] = "offscreen"
         result = subprocess.run(
-            [ASTAP_PROG_NAME, "-f", output_path, "-log", "-d /home/thomas/Documents/Code/QuadStar/platesolving/ASTAP_DB" ],
+            [ASTAP_PROG_NAME, "-f", output_path, "-d /home/thomas/Documents/Code/QuadStar/platesolving/ASTAP_DB", "-log" ],
             env=env
         )
 
