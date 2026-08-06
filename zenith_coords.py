@@ -20,13 +20,13 @@ def estimate_zenith_coords(time, location) :
     print(f"DEC: {zenith_equatorial.dec}")
     return zenith_equatorial
 
-def main() :
+def main(time=Time.now()) :
     
     coord_dict = {
         "latitude" : -27.8305,
         "longitude" : 142.6080
     } 
-    time = Time.now()
+    #time = Time.now()
     location = make_EarthLocation(coord_dict)
     return estimate_zenith_coords(time, location)
     
