@@ -6,13 +6,15 @@ from astropy.stats import sigma_clip
 import astroalign as aa
 from datetime import datetime, timezone
 import os
-from dng_to_fits import  convert_dng_to_fits, tiff_to_fits
+from format_converter import  convert_dng_to_fits, tiff_to_fits
 from helpers import calc_image_scale
 import subprocess
 import zenith_coords
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, AltAz, EarthLocation
 from datetime import datetime
+from astropy.stats import sigma_clipped_stats
+from photutils.segmentation import detect_sources, SourceCatalog
 
 
 
@@ -65,10 +67,8 @@ def sigma_clipped_stack(frames, sigma=2.5):
         """
         # sigma_clip returns a masked array — rejected values are masked out
         clipped = sigma_clip(frames, sigma=sigma, axis=0, maxiters=3)
-
         # Mean of non-rejected values at each pixel position
         stacked = np.ma.mean(clipped, axis=0).data
-
         return stacked
 
 def get_FWHM(image_path) : # UNUSED
@@ -104,13 +104,8 @@ def get_FWHM(image_path) : # UNUSED
 def measure_stars(image_path) :
     
     image = fits.getdata(image_path)
-    from astropy.stats import sigma_clipped_stats
-    from photutils.segmentation import detect_sources, SourceCatalog
-
     mean, median, std = sigma_clipped_stats(image)
-
     threshold = median + 5*std
-
     segment_map = detect_sources(
         image,
         threshold,
@@ -127,22 +122,13 @@ def measure_stars(image_path) :
     y_max = (1 - ROI_Border) * sensor_height
  
     for source in catalog:
-
-        #print(f"Star: {source.label}")
+        
         if x_min < source.x_centroid < x_max :
             if y_min < source.y_centroid < y_max :
-                #print(f"Found acceptable star at:")
-                #print(f"x Centroid: {source.x_centroid}")
-                #print(f"y centroid: {source.y_centroid}")
-                #print(f"Semimajor Axis: {source.semimajor_axis}")
-                #print(f"Semiminor Axis: {source.semiminor_axis}")
-                #print(f"Eccentricity: {source.eccentricity}")
                 eccentricities.append(source.eccentricity)
-                #print(f"Orientation: {source.orientation}")
 
     print(f"Detected {len(catalog)} stars, kept {len(eccentricities)}")
-    #print(f"Mean Stack Eccentricity: {(sum(eccentricities))/len(eccentricities)}")
-    ecc = np.array([s.eccentricity for s in catalog])
+    ecc = np.array([source.eccentricity for source in catalog])
     median_ecc = np.median(ecc)
     # Rejection Logic :
     if median_ecc > 0.9 :
@@ -153,13 +139,11 @@ def measure_stars(image_path) :
     #print(np.median(ecc))
     return median_ecc, reject
 
-
 # ==========================================================================
 
 def main(raw_image_path, filetype) :
     print(f"Starting QuadSolver...\nGood luck and clear skies!\n")
     print("=================================================================")
-
     print(f"Looking for {filetype} files in {raw_image_path}")
 
     # ======== Load Images ==========
@@ -190,21 +174,18 @@ def main(raw_image_path, filetype) :
             converted = tiff_to_fits(file, f"{fits_dir}/{newname}.fits")
             converted_files.append(converted)
             timestamps.append(f"{newname}".split(f"{newname}")[-1])
-            
-            
+                 
     datetimes = []
     for time in timestamps :
         datetime_time = datetime.fromtimestamp(float(time), tz=timezone.utc)
         datetimes.append(datetime_time)
     timestamps = datetimes
 
-
     # ========= Extract timestamps =========
     print(f"First Timestamp: {min(timestamps)} = {min(datetimes)}")
     print(f"Last Timestamp: {max(timestamps)} = {max(datetimes)}")
     obstime = min(datetimes) # Images will have been captured close to each other, so the time from the first image will be fine.
     
-
     # ========= Measure Stats for images ========
     print("=================================================================")
     print("Measuring Star Stats...")
@@ -218,7 +199,6 @@ def main(raw_image_path, filetype) :
         ecc_list.append(median_eccentricity)
     print(f"Average eccentricity for all frames: {(sum(ecc_list))/(len(ecc_list))}")
     
-
     # ========= Align Images =========
     print("=================================================================") 
     reference = fits.getdata(converted_files[0]).astype(np.float32)
@@ -237,9 +217,9 @@ def main(raw_image_path, filetype) :
             except :
                 print(f"Oosp! Alignment failed for image: {f}")
         #aligned = []
-        print(f"Successfully aligned {len(frames)} images")
+        print(f"Aligned {len(frames)} images")
     else :
-        print(f"+++ WARNING +++\nOnly one image... skipping alignment. Is this intentional?")
+        print(f"WARNING: \nOnly one image... skipping alignment. Is this intentional?")
 
     # ========= Integrate Aligned Images =========
     print("=================================================================")
@@ -256,7 +236,6 @@ def main(raw_image_path, filetype) :
     except :
         print("Found stacked image directory")
     output_path = f'./stacked/{obstime}.fits'
-
     fits.writeto(output_path, result, overwrite=True)
     print(f"Integration Complete: Image saved as {output_path}")
 
