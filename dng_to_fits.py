@@ -21,9 +21,14 @@ def convert_dng_to_fits(dng_path, fits_path):
     hdu.header["COMMENT"] = "Raw image sensor array without demosaicing."
 
     # 4. Write out the FITS file
-    hdu.writeto(fits_path, overwrite=True)
-    print(f"Successfully converted {dng_path} -> {fits_path}")
-    return fits_path
+    try:
+        hdu.writeto(fits_path, overwrite=True)
+        #print(f"Successfully converted {dng_path} -> {fits_path}")
+        return fits_path
+    except Exception as e:
+        print("Error writing fits file")
+        print(e)
+        return None
 
 
 # Example usage:

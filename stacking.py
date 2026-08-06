@@ -4,24 +4,29 @@ from astropy.io import fits
 import glob
 from astropy.stats import sigma_clip
 import astroalign as aa
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from dng_to_fits import  convert_dng_to_fits, tiff_to_fits
 from helpers import calc_image_scale
 import subprocess
 import zenith_coords
-
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, AltAz, EarthLocation
 from datetime import datetime
 
 
+
 # ========== GLOBAL PARAMS ==================
 focal_length = 4.5 #mm
 pixel_size = 1.55 #microns
+sensor_width = 4056 #px
+sensor_height = 3040 #px
+
+# Measurements
+ROI_Border = 0.2 # reject stars within this fraction of the edge of the frame
 
 raw_image_path = "/home/thomas/Documents/Code/QuadStar/platesolving/test_images/SkyTest3/0.5s/"
-raw_image_type = "tiff"
+raw_image_type = "dng"
 
 ASTAP_PROG_NAME: str = "astap" #_cli"
 
@@ -66,7 +71,7 @@ def sigma_clipped_stack(frames, sigma=2.5):
 
         return stacked
 
-def get_FWHM(image_path) :
+def get_FWHM(image_path) : # UNUSED
     from photutils.detection import DAOStarFinder
     from astropy.stats import sigma_clipped_stats
 
@@ -97,6 +102,7 @@ def get_FWHM(image_path) :
     print("Median eccentricity:", median_ecc)
 
 def measure_stars(image_path) :
+    
     image = fits.getdata(image_path)
     from astropy.stats import sigma_clipped_stats
     from photutils.segmentation import detect_sources, SourceCatalog
@@ -108,35 +114,53 @@ def measure_stars(image_path) :
     segment_map = detect_sources(
         image,
         threshold,
-        npixels=5
+        n_pixels=5
     )
 
     catalog = SourceCatalog(image, segment_map)
     eccentricities = []
+    # ==== Define ROI =====
+    # Should be an x and a y range where star measurements are accepted
+    x_min = ROI_Border * sensor_width
+    x_max = (1 - ROI_Border) * sensor_width
+    y_min = ROI_Border * sensor_height
+    y_max = (1 - ROI_Border) * sensor_height
+ 
     for source in catalog:
 
         #print(f"Star: {source.label}")
-        #print(f"x Centroid: {source.x_centroid}")
-        #print(f"y centroid: {source.y_centroid}")
-#
-        #print(f"Semimajor Axis: {source.semimajor_axis}")
-        #print(f"Semiminor Axis: {source.semiminor_axis}")
-#
-        #print(f"Eccentricity: {source.eccentricity}")
-        eccentricities.append(source.eccentricity)
-        #print(f"Orientation: {source.orientation}")
+        if x_min < source.x_centroid < x_max :
+            if y_min < source.y_centroid < y_max :
+                #print(f"Found acceptable star at:")
+                #print(f"x Centroid: {source.x_centroid}")
+                #print(f"y centroid: {source.y_centroid}")
+                #print(f"Semimajor Axis: {source.semimajor_axis}")
+                #print(f"Semiminor Axis: {source.semiminor_axis}")
+                #print(f"Eccentricity: {source.eccentricity}")
+                eccentricities.append(source.eccentricity)
+                #print(f"Orientation: {source.orientation}")
 
-        #print()
-    print(f"Mean Eccentricity: {(sum(eccentricities))/len(eccentricities)}")
+    print(f"Detected {len(catalog)} stars, kept {len(eccentricities)}")
+    #print(f"Mean Stack Eccentricity: {(sum(eccentricities))/len(eccentricities)}")
     ecc = np.array([s.eccentricity for s in catalog])
-
-    print(np.median(ecc))
-    return np.median(ecc)
+    median_ecc = np.median(ecc)
+    # Rejection Logic :
+    if median_ecc > 0.9 :
+        print(f"Frame should be rejected, median eccentricity = {median_ecc}")
+        reject = True
+    else :
+        reject = False
+    #print(np.median(ecc))
+    return median_ecc, reject
 
 
 # ==========================================================================
 
 def main(raw_image_path, filetype) :
+    print(f"Starting QuadSolver...\nGood luck and clear skies!\n")
+    print("=================================================================")
+
+    print(f"Looking for {filetype} files in {raw_image_path}")
 
     # ======== Load Images ==========
     files = sorted(glob.glob(f"{raw_image_path}*.{filetype}"))
@@ -155,75 +179,107 @@ def main(raw_image_path, filetype) :
     if filetype == "dng" :
         for file in files :
             i += 1
-            newname = file.removesuffix(".dng")
+            newname = f"{file.removesuffix(".dng")}".split("/")[-1]
             converted = convert_dng_to_fits(file, f"{fits_dir}/{newname}.fits")
             converted_files.append(converted)
-            timestamps.append("_".split(newname)[-1])
+            timestamps.append(f"{newname}".split("_")[-1])
     elif filetype == "tiff" :
         for file in files :
             i += 1
-            newname = file.removesuffix(".tiff")
+            newname = f"{file.removesuffix('.tiff')}".split("/")[-1]
             converted = tiff_to_fits(file, f"{fits_dir}/{newname}.fits")
             converted_files.append(converted)
-            timestamps.append("_".split(newname)[-1])
+            timestamps.append(f"{newname}".split(f"{newname}")[-1])
+            
+            
+    datetimes = []
+    for time in timestamps :
+        datetime_time = datetime.fromtimestamp(float(time), tz=timezone.utc)
+        datetimes.append(datetime_time)
+    timestamps = datetimes
+
 
     # ========= Extract timestamps =========
-    print(f"First Timestamp: {min(timestamps)} = {datetime.fromtimestamp(min(timestamps))}")
-    print(f"Last Timestamp: {max(timestamps)} = {datetime.fromtimestamp(max(timestamps))}")
-
-    average_obstime = (min(timestamps) + max(timestamps))/len(timestamps)
-    print(f"Average Obs Time: {average_obstime} = {datetime.fromtimestamp(average_obstime)}")
-
+    print(f"First Timestamp: {min(timestamps)} = {min(datetimes)}")
+    print(f"Last Timestamp: {max(timestamps)} = {max(datetimes)}")
+    obstime = min(datetimes) # Images will have been captured close to each other, so the time from the first image will be fine.
     
 
     # ========= Measure Stats for images ========
+    print("=================================================================")
+    print("Measuring Star Stats...")
     ecc_list = []
     for image in converted_files :
-        median_eccentricity = measure_stars(image)
-        print(median_eccentricity)
+        median_eccentricity, reject = measure_stars(image)
+        if reject :
+            converted_files.remove(image)
+            print(f"Removed image <{image}> from processing pipeline")
+        #print(median_eccentricity)
         ecc_list.append(median_eccentricity)
-    print(f"Average Ecc for all frames: {(sum(ecc_list))/(len(ecc_list))}")
-    
+    print(f"Average eccentricity for all frames: {(sum(ecc_list))/(len(ecc_list))}")
     
 
     # ========= Align Images =========
+    print("=================================================================") 
     reference = fits.getdata(converted_files[0]).astype(np.float32)
     frames = [reference] # np.array([fits.getdata(f).astype(np.float32) for f in files])
-    print(f"Registering Frames...")
-    i = 1
-    for f in converted_files[1:]:
-        source = fits.getdata(f).astype(np.float32)
-        # Returns the aligned image and the transformation used
-        aligned, footprint = aa.register(source, reference)
-        print(f"Successfully aligned image {i}")
-        frames.append(aligned)
-        i += 1
+    if len(converted_files) > 1 : 
+        print(f"Registering Frames...")
+        i = 1
+        for f in converted_files[1:]:
+            try :
+                source = fits.getdata(f).astype(np.float32)
+                # Returns the aligned image and the transformation used
+                aligned, footprint = aa.register(source, reference)
+                print(f"Successfully aligned image {i}")
+                frames.append(aligned)
+                i += 1
+            except :
+                print(f"Oosp! Alignment failed for image: {f}")
+        #aligned = []
+        print(f"Successfully aligned {len(frames)} images")
+    else :
+        print(f"+++ WARNING +++\nOnly one image... skipping alignment. Is this intentional?")
 
     # ========= Integrate Aligned Images =========
+    print("=================================================================")
+    print("Running image integration...")
+
     frames = np.stack(frames)
+    print(f"Integrating {len(frames)} images...")
     result = sigma_clipped_stack(frames, sigma=2.5)
 
     # ========= Save integrated image to folder =========
     try :
         os.mkdir("./stacked/")
+        print("Stacked images directory does not exist. Creating!")
     except :
-        print("Stacked images directory already exists. Skipping!")
-    output_path = f'./stacked/{average_obstime}.fits'
+        print("Found stacked image directory")
+    output_path = f'./stacked/{obstime}.fits'
+
     fits.writeto(output_path, result, overwrite=True)
     print(f"Integration Complete: Image saved as {output_path}")
 
     # ========= Add coords, time, image scale to stacked file ==========
-    coordinates = zenith_coords.main(average_obstime)
+    print("=================================================================")
+    print(f"Estimating RA/DEC of zenith for time {obstime}...")
+    coordinates = zenith_coords.main(obstime)
     coordinates_dict = {
         "RA" : coordinates.ra,       #255.0, # THIS NEEDS TO BE IN DEGREES, NOT HOURS
         "DEC" : coordinates.dec        #-42.0
     }
-    add_RADEC_to_fits(output_path, coordinates_dict, average_obstime)
+    add_RADEC_to_fits(output_path, coordinates_dict, obstime)
 
     # ========= Run ASTAP =========
-    
+    print("=================================================================")
+    print("Running ASTAP on integrated image...")
     try:
-        result = subprocess.run([ASTAP_PROG_NAME, "-f", output_path, "-log", "-d /home/thomas/Documents/Code/QuadStar/platesolving/ASTAP_DB" ])
+        env = os.environ.copy()
+        env["QT_QPA_PLATFORM"] = "offscreen"
+        result = subprocess.run(
+            [ASTAP_PROG_NAME, "-f", output_path, "-log", "-d /home/thomas/Documents/Code/QuadStar/platesolving/ASTAP_DB" ],
+            env=env
+        )
 
     except subprocess.CalledProcessError as e:
         print(f"Failed: {e}")
@@ -233,6 +289,4 @@ def main(raw_image_path, filetype) :
 
 if __name__ == "__main__" :
     main(raw_image_path, raw_image_type)
-    #get_FWHM("2026-08-05 23:14:37.066381-fits/image1.fits")
-    #measure_stars("2026-08-05 23:14:37.066381-fits/image1.fits")
-    #measure_stars("stacked/2026-08-05 23:15:46.976449.fits")
+
