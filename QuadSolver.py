@@ -15,6 +15,7 @@ from astropy.coordinates import SkyCoord, AltAz, EarthLocation
 from datetime import datetime
 from astropy.stats import sigma_clipped_stats
 from photutils.segmentation import detect_sources, SourceCatalog
+from world_dir import ra_to_degrees, dec_to_degrees, get_ra_dec
 
 
 
@@ -138,6 +139,9 @@ def measure_stars(image_path) :
         reject = False
     #print(np.median(ecc))
     return median_ecc, reject
+
+
+
 
 # ==========================================================================
 
@@ -265,6 +269,21 @@ def main(raw_image_path, filetype) :
     except subprocess.TimeoutExpired:
         print("Timeout")
 
+    ra_str, dec_str = get_ra_dec(output_path + ".log")
+
+    try:
+        if ra_str is None or dec_str is None:
+            print("No plate solve found.")
+        else:
+            ra_hrs = ra_to_degrees(ra_str) / 15.0
+            dec_degs = dec_to_degrees(dec_str)
+            print(f"RA : {ra_to_degrees(ra_str)}")
+            print(f"DEC: {dec_to_degrees(dec_str)}")
+
+    except Exception as e:
+        print(f"Failed to convert ra or dec: {e}")
+
+# ==============================================================================
 
 if __name__ == "__main__" :
     main(raw_image_path, raw_image_type)
