@@ -27,8 +27,8 @@ ASTAP_PROG_NAME: str = "astap" #_cli"
 
 # ===========================================
 
-def add_RADEC_to_fits(file, coordinates_dict) :
-    obstime = datetime.now()
+def add_RADEC_to_fits(file, coordinates_dict, average_obstime) :
+    obstime = average_obstime
     data, header = fits.getdata(file, header=True)
     RA = float(coordinates_dict["RA"].deg)
     DEC = float(coordinates_dict["DEC"].deg)
@@ -151,16 +151,30 @@ def main(raw_image_path, filetype) :
     os.mkdir(fits_dir)
     converted_files = []
     i=0
+    timestamps = []
     if filetype == "dng" :
         for file in files :
             i += 1
-            converted = convert_dng_to_fits(file, f"{fits_dir}/{file}.fits")
+            newname = file.removesuffix(".dng")
+            converted = convert_dng_to_fits(file, f"{fits_dir}/{newname}.fits")
             converted_files.append(converted)
+            timestamps.append("_".split(newname)[-1])
     elif filetype == "tiff" :
         for file in files :
             i += 1
-            converted = tiff_to_fits(file, f"{fits_dir}/{file}.fits")
+            newname = file.removesuffix(".tiff")
+            converted = tiff_to_fits(file, f"{fits_dir}/{newname}.fits")
             converted_files.append(converted)
+            timestamps.append("_".split(newname)[-1])
+
+    # ========= Extract timestamps =========
+    print(f"First Timestamp: {min(timestamps)} = {datetime.fromtimestamp(min(timestamps))}")
+    print(f"Last Timestamp: {max(timestamps)} = {datetime.fromtimestamp(max(timestamps))}")
+
+    average_obstime = (min(timestamps) + max(timestamps))/len(timestamps)
+    print(f"Average Obs Time: {average_obstime} = {datetime.fromtimestamp(average_obstime)}")
+
+    
 
     # ========= Measure Stats for images ========
     ecc_list = []
@@ -194,17 +208,17 @@ def main(raw_image_path, filetype) :
         os.mkdir("./stacked/")
     except :
         print("Stacked images directory already exists. Skipping!")
-    output_path = f'./stacked/{datetime.now()}.fits'
+    output_path = f'./stacked/{average_obstime}.fits'
     fits.writeto(output_path, result, overwrite=True)
     print(f"Integration Complete: Image saved as {output_path}")
 
     # ========= Add coords, time, image scale to stacked file ==========
-    coordinates = zenith_coords.main(Time.now())
+    coordinates = zenith_coords.main(average_obstime)
     coordinates_dict = {
         "RA" : coordinates.ra,       #255.0, # THIS NEEDS TO BE IN DEGREES, NOT HOURS
         "DEC" : coordinates.dec        #-42.0
     }
-    add_RADEC_to_fits(output_path, coordinates_dict)
+    add_RADEC_to_fits(output_path, coordinates_dict, average_obstime)
 
     # ========= Run ASTAP =========
     
