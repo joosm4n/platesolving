@@ -21,6 +21,7 @@ QuadSolver is a module that :
 #### Instructions:
 1. Check all of the Global Params at the top of the file, particularly the file paths and file types. The pixel size and focal length are very important too. Okay it's actually all important!
 2. If you aren't already in the virtual environment, run ```source .venv/bin/activate```
+3. Run ```pip install -r requirements.txt```
 3. Run ```python QuadSolver.py```
 4. Sit back and relax
 
