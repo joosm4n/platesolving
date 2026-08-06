@@ -16,7 +16,7 @@ from datetime import datetime
 from astropy.stats import sigma_clipped_stats
 from photutils.segmentation import detect_sources, SourceCatalog
 from world_dir import ra_to_degrees, dec_to_degrees, get_ra_dec
-import time
+import time as time_mod
 
 
 # ========== GLOBAL PARAMS ==================
@@ -146,7 +146,7 @@ def measure_stars(image_path) :
 # ==========================================================================
 
 def main(raw_image_path, filetype) :
-    start_time = time.perf_counter()
+    start_time = time_mod.perf_counter()
     print(f"Starting QuadSolver...\nGood luck and clear skies!\n")
     print("=================================================================")
     print(f"Looking for {filetype} files in {raw_image_path}")
@@ -287,7 +287,7 @@ def main(raw_image_path, filetype) :
     except Exception as e:
         print(f"Failed to convert ra or dec: {e}")
 
-    end_time = time.perf_counter()
+    end_time = time_mod.perf_counter()
     execution_time = end_time - start_time
     print(f"Executed in: {execution_time:.6f} seconds")
 # ==============================================================================
