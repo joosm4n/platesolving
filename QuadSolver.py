@@ -16,7 +16,7 @@ from datetime import datetime
 from astropy.stats import sigma_clipped_stats
 from photutils.segmentation import detect_sources, SourceCatalog
 from world_dir import ra_to_degrees, dec_to_degrees, get_ra_dec
-
+import time
 
 
 # ========== GLOBAL PARAMS ==================
@@ -28,7 +28,7 @@ sensor_height = 3040 #px
 # Measurements
 ROI_Border = 0.2 # reject stars within this fraction of the edge of the frame
 
-raw_image_path = "/home/thomas/Documents/Code/QuadStar/platesolving/test_images/SkyTest3/0.5s/"
+raw_image_path = "/home/thomas/Documents/Code/QuadStar/platesolving/test_images/SkyTest3/0.5s_5/"
 raw_image_type = "dng"
 
 ASTAP_PROG_NAME: str = "astap" #_cli"
@@ -146,6 +146,7 @@ def measure_stars(image_path) :
 # ==========================================================================
 
 def main(raw_image_path, filetype) :
+    start_time = time.perf_counter()
     print(f"Starting QuadSolver...\nGood luck and clear skies!\n")
     print("=================================================================")
     print(f"Looking for {filetype} files in {raw_image_path}")
@@ -256,6 +257,7 @@ def main(raw_image_path, filetype) :
     # ========= Run ASTAP =========
     print("=================================================================")
     print("Running ASTAP on integrated image...")
+    print(f"------------------------------------")
     try:
         env = os.environ.copy()
         env["QT_QPA_PLATFORM"] = "offscreen"
@@ -273,16 +275,21 @@ def main(raw_image_path, filetype) :
 
     try:
         if ra_str is None or dec_str is None:
-            print("No plate solve found.")
+            print("No plate solution found. Try integrating more frames?")
         else:
             ra_hrs = ra_to_degrees(ra_str) / 15.0
             dec_degs = dec_to_degrees(dec_str)
+            print(f"------------------------------------")
+            print("SUCCESS!")
             print(f"RA : {ra_to_degrees(ra_str)}")
             print(f"DEC: {dec_to_degrees(dec_str)}")
 
     except Exception as e:
         print(f"Failed to convert ra or dec: {e}")
 
+    end_time = time.perf_counter()
+    execution_time = end_time - start_time
+    print(f"Executed in: {execution_time:.6f} seconds")
 # ==============================================================================
 
 if __name__ == "__main__" :
